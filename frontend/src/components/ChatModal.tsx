@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -7,44 +7,60 @@ interface ChatModalProps {
 }
 
 interface WeatherData {
-  city_name: string;
-  temp: number;
-  weather: {
-    description: string;
-  };
-  rh: number; // relative humidity
-  wind_spd: number;
-  datetime: string; // datetime of the weather data
+  temperature: number; // current temperature
+  windspeed: number; // wind speed in km/h
+  weathercode: number; // code representing the weather condition
 }
 
 const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, darkMode }) => {
   const [messages, setMessages] = useState<{ text: string; sender: 'user' | 'bot' }[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const API_KEY = 'bb375237635f47d3bf879076c5dad7f7';
+  const [isBotTyping, setIsBotTyping] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.sender === 'user') {
+      setIsBotTyping(true);
+      setTimeout(() => {
+        handleBotResponse(lastMessage.text);
+      }, 1500); // Simula un retraso en la respuesta del bot
+    }
+  }, [messages, isOpen]);
 
   if (!isOpen) return null;
 
   const handleWeatherQuery = async (query: string) => {
     try {
-      // Extract location from query
       const location = query.toLowerCase().replace('clima en ', '').trim();
-      
+
+      // Diccionario con ciudades y sus coordenadas
+      const geocoding: Record<string, { latitude: number; longitude: number }> = {
+        "ginebra, valle del cauca": { latitude: 4.329, longitude: -75.812 },
+        "cali, valle del cauca": { latitude: 3.4516, longitude: -76.5319 },
+        "bogotá, cundinamarca": { latitude: 4.711, longitude: -74.0721 },
+        "medellín, antioquia": { latitude: 6.2442, longitude: -75.5812 },
+        // Agrega más ciudades según sea necesario
+      };
+
+      if (!geocoding[location]) {
+        return 'Lo siento, no reconozco esa ubicación. Por favor, intenta con otra ciudad.';
+      }
+
+      const { latitude, longitude } = geocoding[location];
       const response = await fetch(
-        `https://api.weatherbit.io/v2.0/current?city=${location}&key=${API_KEY}&lang=es`
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
       );
-      
+
       const data = await response.json();
-      if (data.data && data.data[0]) {
-        const weather: WeatherData = data.data[0];
-        const weatherDate = new Date(weather.datetime).toLocaleDateString();
-        const weatherResponse = `
-          Clima en ${weather.city_name} (${weatherDate}):
-          🌡️ Temperatura: ${weather.temp}°C
-          🌥️ Condición: ${weather.weather.description}
-          💧 Humedad: ${weather.rh}%
-          💨 Velocidad del viento: ${Math.round(weather.wind_spd * 3.6)} km/h
+      if (data.current_weather) {
+        const weather: WeatherData = data.current_weather;
+        return `
+          Clima en ${location.charAt(0).toUpperCase() + location.slice(1)}:
+          🌡️ Temperatura: ${weather.temperature}°C
+          💨 Velocidad del viento: ${weather.windspeed} km/h
+          🌥️ Condición: ${getWeatherDescription(weather.weathercode)}
         `;
-        return weatherResponse;
       }
       return 'Lo siento, no pude encontrar información del clima para esa ubicación.';
     } catch {
@@ -52,19 +68,48 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, darkMode }) => {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const getWeatherDescription = (code: number): string => {
+    const descriptions: { [key: number]: string } = {
+      0: 'Cielo despejado',
+      1: 'Principalmente despejado',
+      2: 'Parcialmente nublado',
+      3: 'Nublado',
+      45: 'Neblina',
+      48: 'Neblina helada',
+      51: 'Llovizna ligera',
+      53: 'Llovizna moderada',
+      55: 'Llovizna intensa',
+      61: 'Lluvia ligera',
+      63: 'Lluvia moderada',
+      65: 'Lluvia intensa',
+      80: 'Chubascos ligeros',
+      81: 'Chubascos moderados',
+      82: 'Chubascos intensos',
+    };
+    return descriptions[code] || 'Condición desconocida';
+  };
+
+  const handleBotResponse = async (userMessage: string) => {
+    let response = '';
+    const normalizedMessage = userMessage.toLowerCase().trim();
+
+    // Respuestas de saludo
+    if (normalizedMessage.includes('hola') || normalizedMessage.includes('buenos días') || normalizedMessage.includes('buenas tardes')) {
+      response = '¡Hola! ¿Cómo puedo ayudarte hoy?';
+    } else if (normalizedMessage.includes('clima en')) {
+      response = await handleWeatherQuery(userMessage);
+    } else {
+      response = 'Para consultar el clima, escribe "clima en" seguido de la ciudad y región. Por ejemplo: "clima en Ginebra, Valle del Cauca".';
+    }
+
+    setMessages((prev) => [...prev, { text: response, sender: 'bot' }]);
+    setIsBotTyping(false);
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputMessage.trim()) {
-      setMessages([...messages, { text: inputMessage, sender: 'user' }]);
-      
-      let response = '';
-      if (inputMessage.toLowerCase().includes('clima en')) {
-        response = await handleWeatherQuery(inputMessage);
-      } else {
-        response = 'Para consultar el clima, escribe "clima en" seguido de la ciudad. Por ejemplo: "clima en Ginebra Valle del Cauca"';
-      }
-
-      setMessages(prev => [...prev, { text: response, sender: 'bot' }]);
+      setMessages((prev) => [...prev, { text: inputMessage, sender: 'user' }]);
       setInputMessage('');
     }
   };
@@ -92,6 +137,13 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, darkMode }) => {
               </div>
             </div>
           ))}
+          {isBotTyping && (
+            <div className="mb-4 text-left text-gray-500 dark:text-gray-400">
+              <div className="inline-block p-2 rounded-lg">
+                <span>El bot está escribiendo...</span>
+              </div>
+            </div>
+          )}
         </div>
         <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex">
@@ -99,7 +151,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, darkMode }) => {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Pregunta por el clima (ej: clima en Ginebra)"
+              placeholder="Pregunta por el clima (ej: clima en Ginebra, Valle del Cauca)"
               className={`flex-grow p-2 rounded-l-lg focus:outline-none ${
                 darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-gray-100 text-gray-900 placeholder-gray-500'
               }`}
