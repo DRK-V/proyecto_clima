@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CloudRain } from 'lucide-react';
 
 export default function Register() {
@@ -9,6 +9,20 @@ export default function Register() {
         full_name: '',
         phone: ''
     });
+    const [popupMessage, setPopupMessage] = useState('');
+    const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
+
+    useEffect(() => {
+        if (popupMessage) {
+            const timer = setTimeout(() => {
+                setPopupMessage('');
+                if (popupType === 'success') {
+                    window.location.href = '/login';
+                }
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [popupMessage, popupType]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -21,7 +35,7 @@ export default function Register() {
         e.preventDefault();
 
         try {
-            const response = await fetch('http://localhost:3000/api/users/register', {
+            const response = await fetch('https://back-clima-latest.onrender.com/api/users/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -31,17 +45,15 @@ export default function Register() {
 
             const result = await response.json();
             if (response.ok) {
-                alert('Usuario registrado exitosamente.');
-                // Aquí puedes redirigir al usuario o limpiar el formulario
+                setPopupType('success');
+                setPopupMessage('Usuario registrado exitosamente.');
             } else {
-                alert(`Error: ${result.message}`);
+                setPopupType('error');
+                setPopupMessage(result.message || 'El correo ya se encuentra registrado.');
             }
-        } catch (error) {
-            if (error instanceof Error) {
-                alert(`Error en el servidor: ${error.message}`);
-            } else {
-                alert('Error en el servidor: Error desconocido');
-            }
+        } catch {
+            setPopupType('error');
+            setPopupMessage('Error al registrar usuario.');
         }
     };
 
@@ -52,6 +64,13 @@ export default function Register() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-blue-400 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            {/* Popup encima del contenido */}
+            {popupMessage && (
+                <div className={`fixed top-8 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-xs p-4 text-center rounded-xl shadow-lg animate-fade-in ${popupType === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}>
+                    {popupMessage}
+                </div>
+            )}
+
             {/* Decorative Interactive Clouds */}
             <div className="absolute inset-0 overflow-hidden">
                 {[...Array(10)].map((_, index) => (

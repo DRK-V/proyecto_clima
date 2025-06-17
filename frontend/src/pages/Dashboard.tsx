@@ -1,27 +1,47 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import { LogOut, Thermometer, Droplets, Search, Moon, Sun, UserCircle } from 'lucide-react';
+// Importar solo una vez y solo los iconos necesarios de lucide-react
+import {
+  LogOut,
+  Droplets,
+  Search,
+  Moon,
+  Sun,
+  UserCircle,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  Wind,
+  Thermometer,
+  CloudSun,
+  CloudMoon
+} from 'lucide-react';
 import ForecastModal from '../components/ForecastModal';
 import ChatModal from '../components/ChatModal';
 
 // Interfaces
 interface DashboardProps {
-  setIsAuthenticated: (value: boolean) => void;
+  user: { name: string; email: string } | null;
+  setIsAuthenticated: (isAuthenticated: boolean) => void;
 }
-
 interface WeatherData {
   daily: {
     temperature_2m_min: number[];
     temperature_2m_max: number[];
     rain_sum: number[];
     weathercode: number[];
+    precipitation_probability_mean?: number[];
     time: string[];
   };
   hourly: {
     temperature_2m: number[];
     relativehumidity_2m: number[];
     windspeed_10m: number[];
+    precipitation_probability?: number[];
     time: string[];
   };
 }
@@ -32,6 +52,7 @@ interface ForecastData {
   temperatureMax: number;
   rainSum: number;
   weatherCode: number;
+  precipitationProbability: number;
   hourlyTemperature: number[];
   hourlyTime: string[];
   humidity: number;
@@ -162,7 +183,33 @@ const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({ isAuthenticated, darkMo
       </button>
     </div>
   );
-};
+}
+
+// Definir getWeatherIcon fuera del componente Dashboard para que esté disponible en todo el archivo
+function getWeatherIcon(code: number, isDark: boolean = false) {
+  // Basado en el código WMO y usando iconos modernos de lucide-react
+  // https://open-meteo.com/en/docs#api_form
+  switch (true) {
+    case [0].includes(code): // Despejado
+      return isDark ? <Moon className="w-10 h-10 text-yellow-300 mx-auto" /> : <Sun className="w-10 h-10 text-yellow-400 mx-auto" />;
+    case [1].includes(code): // Mayormente despejado
+      return isDark ? <CloudMoon className="w-10 h-10 text-blue-200 mx-auto" /> : <CloudSun className="w-10 h-10 text-yellow-400 mx-auto" />;
+    case [2, 3].includes(code): // Parcialmente nublado o nublado
+      return <Cloud className="w-10 h-10 text-gray-400 mx-auto" />;
+    case [45, 48].includes(code): // Niebla
+      return <CloudFog className="w-10 h-10 text-gray-400 mx-auto" />;
+    case [51, 53, 55, 56, 57].includes(code): // Llovizna
+      return <CloudDrizzle className="w-10 h-10 text-blue-400 mx-auto" />;
+    case [61, 63, 65, 66, 67, 80, 81, 82].includes(code): // Lluvia
+      return <CloudRain className="w-10 h-10 text-blue-500 mx-auto" />;
+    case [71, 73, 75, 77, 85, 86].includes(code): // Nieve
+      return <CloudSnow className="w-10 h-10 text-blue-200 mx-auto" />;
+    case [95, 96, 99].includes(code): // Tormenta
+      return <CloudLightning className="w-10 h-10 text-yellow-400 mx-auto" />;
+    default:
+      return <Sun className="w-10 h-10 text-yellow-400 mx-auto" />;
+  }
+}
 
 // Dashboard Component
 export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
@@ -180,21 +227,26 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [showMap, setShowMap] = useState(false);
 
+  // 3. Corregir advertencias de dependencias y variables no usadas en useEffect y catch
+  // useEffect para cargar usuario y ubicación
   useEffect(() => {
     const userData = Cookies.get('user_data');
     if (userData) {
       setUser(JSON.parse(userData));
     }
     getUserLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // useEffect para refrescar datos cada 10 minutos
   useEffect(() => {
     const interval = setInterval(() => {
       if (userLocation) {
         fetchWeatherData(city);
       }
-    }, 600000); // cada 10 minutos
-    return () => clearInterval(interval); // Limpiar el intervalo al desmontar el componente
+    }, 600000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, city]);
 
   const getUserLocation = () => {
@@ -205,31 +257,27 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
           const { latitude, longitude } = position.coords;
           setUserLocation({ lat: latitude, lon: longitude });
 
+
           try {
             const response = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&accept-language=es`
             );
 
+
             if (!response.ok) throw new Error('Error en la respuesta de Nominatim');
+
 
             const data = await response.json();
 
-            const cityName = data.address.city ||
-              data.address.town ||
-              data.address.village ||
-              data.address.municipality ||
-              'Ciudad desconocida';
-
-            const regionName = data.address.state ||
-              data.address.region ||
-              data.address.county ||
-              '';
-
+            // Obtener nombre de ciudad y región solo una vez
+            const address = data.address;
+            const cityName = address.city || address.town || address.village || address.municipality || 'Ciudad desconocida';
+            const regionName = address.state || address.region || address.county || '';
             const locationName = `${cityName}${regionName ? `, ${regionName}` : ''}`;
             setCity(locationName);
             await fetchWeatherData(locationName);
           } catch {
-            console.error('Error getting location name:', error);
+            console.error('Error getting location name');
             setError('Error al obtener el nombre de la ubicación');
             setCity('Ciudad desconocida');
           } finally {
@@ -259,7 +307,9 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`
       );
 
+
       if (!response.ok) throw new Error('No se pudo obtener las coordenadas');
+
 
       const data = await response.json();
 
@@ -291,38 +341,45 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
           longitude: parseFloat(location.lon),
           formattedName: locationName || searchQuery
         };
+
       }
 
       throw new Error('No se encontraron resultados');
-    } catch (error) {
-      console.error('Error fetching coordinates:', error);
+    } catch {
+      console.error('Error fetching coordinates');
       return null;
     }
   };
 
 
+
   const fetchWeatherData = async (city: string) => {
     if (!city) return;
 
+
     setLoading(true);
     setError(null);
+
 
     try {
       const coordinates = await fetchCoordinates(city);
       if (!coordinates) throw new Error('No se obtuvieron coordenadas válidas');
 
+
       const { latitude, longitude } = coordinates;
 
+
       const response = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,rain_sum,weathercode&hourly=temperature_2m,relativehumidity_2m,windspeed_10m&timezone=auto&forecast_days=14`
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,rain_sum,weathercode,precipitation_probability_mean&hourly=temperature_2m,relativehumidity_2m,windspeed_10m,precipitation_probability&timezone=auto&forecast_days=14`
       );
+
 
       if (!response.ok) throw new Error('No se pudo obtener los datos del clima');
 
+
       const data = await response.json();
       setWeatherData(data);
-    } catch (error) {
-      console.error('Error fetching weather data:', error);
+    } catch {
       setError('Error al obtener los datos del clima. Por favor, inténtelo nuevamente más tarde.');
     } finally {
       setLoading(false);
@@ -359,7 +416,7 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
       } else {
         setError('No se pudo encontrar la ubicación especificada');
       }
-    } catch (error) {
+    } catch {
       setError('Error al buscar la ubicación');
     } finally {
       setLoading(false);
@@ -378,26 +435,57 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
     setMenuOpen(!menuOpen);
   };
 
-  const generateWeatherDataForFutureDays = (data: WeatherData) => {
-    const futureDaysData = [];
-    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const getCurrentForecast = (data: WeatherData): ForecastData | null => {
+    if (!data) return null;
+    // Usar el primer día (hoy)
+    const startIndex = 0;
+    const endIndex = 24;
+    let precipitationProbability = 0;
+    if (data.hourly.precipitation_probability) {
+      const slice = data.hourly.precipitation_probability.slice(startIndex, endIndex);
+      precipitationProbability = slice.length > 0 ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length) : 0;
+    } else if (data.daily.precipitation_probability_mean) {
+      precipitationProbability = Math.round(data.daily.precipitation_probability_mean[0] || 0);
+    }
+    return {
+      date: 'Hoy',
+      temperatureMin: data.daily.temperature_2m_min[0],
+      temperatureMax: data.daily.temperature_2m_max[0],
+      rainSum: data.daily.rain_sum[0],
+      weatherCode: data.daily.weathercode[0],
+      precipitationProbability,
+      hourlyTemperature: data.hourly.temperature_2m.slice(startIndex, endIndex),
+      hourlyTime: data.hourly.time.slice(startIndex, endIndex).map((time: string) => new Date(time).getHours() + ':00'),
+      humidity: Math.round(data.hourly.relativehumidity_2m[12] || 0),
+      windSpeed: Math.round(data.hourly.windspeed_10m[12] || 0),
+    };
+  };
 
+  const generateWeatherDataForFutureDays = (data: WeatherData) => {
+    const futureDaysData: ForecastData[] = [];
+    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
     for (let i = 1; i < data.daily.time.length; i++) {
       const date = new Date(data.daily.time[i]);
       const startIndex = (i - 1) * 24;
       const endIndex = i * 24;
+      let dailyProb = 0;
+      if (data.hourly.precipitation_probability) {
+        const slice = data.hourly.precipitation_probability.slice(startIndex, endIndex);
+        dailyProb = slice.length > 0 ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length) : 0;
+      } else if (data.daily.precipitation_probability_mean) {
+        dailyProb = Math.round(data.daily.precipitation_probability_mean[i] || 0);
+      }
       futureDaysData.push({
         date: days[date.getDay()],
         temperatureMin: data.daily.temperature_2m_min[i],
         temperatureMax: data.daily.temperature_2m_max[i],
         rainSum: data.daily.rain_sum[i],
         weatherCode: data.daily.weathercode[i],
+        precipitationProbability: dailyProb,
         hourlyTemperature: data.hourly.temperature_2m.slice(startIndex, endIndex),
-        hourlyTime: data.hourly.time.slice(startIndex, endIndex).map((time: string) =>
-          new Date(time).getHours() + ':00'
-        ),
-        humidity: Math.round(data.hourly.relativehumidity_2m[startIndex + 12]),
-        windSpeed: Math.round(data.hourly.windspeed_10m[startIndex + 12]),
+        hourlyTime: data.hourly.time.slice(startIndex, endIndex).map((time: string) => new Date(time).getHours() + ':00'),
+        humidity: Math.round(data.hourly.relativehumidity_2m[startIndex + 12] || 0),
+        windSpeed: Math.round(data.hourly.windspeed_10m[startIndex + 12] || 0),
       });
     }
     return futureDaysData;
@@ -472,6 +560,19 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
           </svg>
           {loading ? 'Cargando...' : 'Mi ubicación'}
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 mb-6">
+        <button
+          onClick={getUserLocation}
+          className={`flex items-center px-3 py-2 rounded-full transition duration-300 ease-in-out ${darkMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+          disabled={loading}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+          </svg>
+          {loading ? 'Cargando...' : 'Mi ubicación'}
+        </button>
 
         <form onSubmit={handleSearch} className="flex-1">
           <div className={`flex items-center rounded-full p-2 ${darkMode ? 'bg-gray-800' : 'bg-white shadow-md'}`}>
@@ -498,36 +599,45 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
           {error}
         </div>
       )}
+      {error && (
+        <div className={`mb-4 p-4 rounded-lg ${darkMode ? 'bg-red-900 text-white' : 'bg-red-100 text-red-700'}`}>
+          {error}
+        </div>
+      )}
 
-      <div className={`rounded-2xl p-6 mb-6 ${darkMode ? 'bg-gray-800 shadow-lg' : 'bg-white shadow-md'}`}>
+      {/* Mejorar visualización de las cards de diagnóstico */}
+      <div className={`rounded-2xl p-6 mb-6 ${darkMode ? 'bg-gradient-to-br from-gray-800 via-gray-900 to-blue-900 shadow-xl' : 'bg-gradient-to-br from-blue-100 via-white to-blue-200 shadow-lg'}`}>
         <h2 className="text-2xl font-semibold mb-4">Clima actual en {city}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {weatherData ? (
-            <>
-              <div className={`flex items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-blue-100'}`}>
-                <Thermometer className="w-8 h-8 text-blue-500 mr-3" />
-                <div>
-                  <p className="text-sm">Temperatura Min</p>
-                  <p className="text-xl font-bold">{weatherData.daily.temperature_2m_min[0]}°C</p>
+            (() => {
+              const current = getCurrentForecast(weatherData);
+              if (!current) return null;
+              return <>
+                <div className={`flex flex-col items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-blue-100'}`}>
+                  {getWeatherIcon(current.weatherCode, darkMode)}
+                  <p className="text-lg font-bold mt-2">{current.temperatureMin}°C / {current.temperatureMax}°C</p>
+                  <p className="text-sm">Temp. mínima / máxima</p>
                 </div>
-              </div>
-              <div className={`flex items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-red-100'}`}>
-                <Thermometer className="w-8 h-8 text-red-500 mr-3" />
-                <div>
-                  <p className="text-sm">Temperatura Max</p>
-                  <p className="text-xl font-bold">{weatherData.daily.temperature_2m_max[0]}°C</p>
-                </div>
-              </div>
-              <div className={`flex items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-indigo-100'}`}>
-                <Droplets className="w-8 h-8 text-indigo-500 mr-3" />
-                <div>
+                <div className={`flex flex-col items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-indigo-100'}`}> 
+                  <Droplets className="w-8 h-8 text-blue-500 mb-1" />
+                  <p className="text-lg font-bold">{current.precipitationProbability}%</p>
                   <p className="text-sm">Probabilidad de lluvia</p>
-                  <p className="text-xl font-bold">{weatherData.daily.weathercode[0] === 1 ? 'No lloverá' : 'Lloverá'}</p>
                 </div>
-              </div>
-            </>
+                <div className={`flex flex-col items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-green-100'}`}> 
+                  <Thermometer className="w-8 h-8 text-green-500 mb-1" />
+                  <span className="text-2xl font-bold">{current.humidity}%</span>
+                  <p className="text-sm">Humedad</p>
+                </div>
+                <div className={`flex flex-col items-center p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-yellow-100'}`}> 
+                  <Wind className="w-8 h-8 text-yellow-500 mb-1" />
+                  <span className="text-2xl font-bold">{current.windSpeed} km/h</span>
+                  <p className="text-sm">Viento</p>
+                </div>
+              </>;
+            })()
           ) : (
-            <p className="col-span-3 text-center">Cargando datos del clima...</p>
+            <p className="col-span-4 text-center">Cargando datos del clima...</p>
           )}
         </div>
       </div>
@@ -556,16 +666,15 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
           showMap={showMap}
           setShowMap={setShowMap}
         />
-
-        {showMap && user && userLocation && (
-          <WeatherMap
-            darkMode={darkMode}
-            userLocation={userLocation}
-            city={city}
-            onLocationSelect={handleLocationSelect}
-          />
-        )}
       </div>
+      {showMap && user && userLocation && (
+        <WeatherMap
+          darkMode={darkMode}
+          userLocation={userLocation}
+          city={city}
+          onLocationSelect={handleLocationSelect}
+        />
+      )}
 
       {selectedForecast && (
         <ForecastModal
@@ -602,60 +711,22 @@ export default function Dashboard({ setIsAuthenticated }: DashboardProps) {
 
 // WeatherCard Component
 interface WeatherCardProps {
-  data: {
-    date: string;
-    temperatureMin: number;
-    temperatureMax: number;
-    rainSum: number;
-    weatherCode: number;
-  };
+  data: ForecastData;
   darkMode: boolean;
   onClick: () => void;
 }
 
 const WeatherCard: React.FC<WeatherCardProps> = ({ data, darkMode, onClick }) => {
-  const WeatherIcon = ({ isRainy }: { isRainy: boolean }) => (
-    <div className={`w-16 h-16 mx-auto my-2 ${isRainy ? 'text-blue-500' : 'text-yellow-500'}`}>
-      {isRainy ? (
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path
-            d="M20 15.5C20 18.5376 17.5376 21 14.5 21H7C4.23858 21 2 18.7614 2 16C2 13.4031 3.98032 11.2751 6.5 11.0252C6.5 11.0168 6.5 11.0084 6.5 11C6.5 7.96243 8.96243 5.5 12 5.5C15.0376 5.5 17.5 7.96243 17.5 11C17.5 11.0084 17.5 11.0168 17.5 11.0252C20.0197 11.2751 22 13.4031 22 16C22 16.5 21.5 17.5 20 17.5"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M12 12V17M12 17L14 15M12 17L10 15"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path
-            d="M12 3V4M12 20V21M21 12H20M4 12H3M18.364 18.364L17.657 17.657M6.343 6.343L5.636 5.636M18.364 5.636L17.657 6.343M6.343 17.657L5.636 18.364"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
-        </svg>
-      )}
-    </div>
-  );
-
   return (
     <div
       className={`rounded-lg shadow-lg p-4 cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-105 ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-blue-50'}`}
       onClick={onClick}
     >
       <p className="text-lg font-bold text-center">{data.date}</p>
-      <p className="text-sm text-center">{`${data.temperatureMin}°C - ${data.temperatureMax}°C`}</p>
-      <WeatherIcon isRainy={data.weatherCode !== 1} />
-      <p className="text-xs text-center mt-2">{data.rainSum > 0 ? `${data.rainSum} mm lluvia` : 'Sin lluvia'}</p>
+      {getWeatherIcon(data.weatherCode, darkMode)}
+      <p className="text-sm text-center mt-2">{`${data.temperatureMin}°C / ${data.temperatureMax}°C`}</p>
+      <p className="text-xs text-center mt-1 flex items-center justify-center gap-1"><Droplets className="w-4 h-4 text-blue-500" /> <span className="font-semibold">{data.precipitationProbability}%</span></p>
+      <p className="text-xs text-center mt-1">{data.rainSum > 0 ? `${data.rainSum} mm` : 'Sin lluvia'}</p>
     </div>
   );
 }
