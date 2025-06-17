@@ -1,5 +1,7 @@
 # proyecto_clima
 
+Proyecto web fullstack para consultar el clima actual y el pronóstico de cualquier ciudad, con registro e inicio de sesión de usuarios, visualización de mapas interactivos, chat de ayuda y panel de usuario. Incluye backend en Node.js/Express y frontend en React + Vite + TailwindCSS, con autenticación JWT y despliegue listo para Docker.
+
 ## Estructura del proyecto
 
 - **backend/**: Servidor Express para la API REST, autenticación, conexión a base de datos y lógica de negocio.
