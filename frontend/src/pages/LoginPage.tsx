@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { CloudRain, User, Lock, Eye, EyeOff } from 'lucide-react';
@@ -12,13 +12,11 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setErrorMessage(''); // Limpiar mensaje de error previo
     if (username && password) {
       try {
         const response = await fetch('https://back-clima-latest.onrender.com/api/users/login', {
@@ -31,8 +29,7 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
 
         if (!response.ok) {
           const errorData = await response.json();
-          setErrorMessage(errorData.message || 'Correo o contraseña incorrectos');
-          return;
+          throw new Error(errorData.message || 'Error al iniciar sesión');
         }
 
         const data = await response.json();
@@ -46,22 +43,14 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
 
         navigate('/dashboard');
       } catch (error) {
-        setErrorMessage('Error de conexión o servidor.');
         console.error('Error:', error);
+        // Mostrar un mensaje al usuario o manejar el error según tu diseño
       }
     }
   };
 
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-400 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Nubes decorativas interactivas */}
       {/* Nubes decorativas interactivas */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(10)].map((_, index) => (
@@ -85,14 +74,7 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
       </div>
 
       {/* Tarjeta de inicio de sesión */}
-      <div className="w-full max-w-md bg-white/90 rounded-3xl p-8 shadow-lg backdrop-blur-md relative">
-        {/* Popup de error centrado sobre el form */}
-        {errorMessage && (
-          <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-50 w-full max-w-xs bg-red-100 border border-red-400 text-red-700 rounded-xl text-center p-4 shadow-lg animate-fade-in">
-            {errorMessage}
-          </div>
-        )}
-
+      <div className="w-full max-w-md bg-white/90 rounded-3xl p-8 shadow-lg backdrop-blur-md">
         <h2 className="text-2xl text-blue-700 font-medium mb-6">Bienvenido de nuevo</h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -126,19 +108,19 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between pt-2 space-y-4 sm:space-y-0">
-            <button
-              type="submit"
-              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white text-lg py-3 px-8 rounded-xl transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
-            >
-              Iniciar sesión
-            </button>
-            <a
-              href="/forgot"
-              className="w-full sm:w-auto text-center text-violet-500 hover:text-violet-600 text-sm transition duration-300 ease-in-out"
-            >
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
+  <button
+    type="submit"
+    className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white text-lg py-3 px-8 rounded-xl transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
+  >
+    Iniciar sesión
+  </button>
+  <a
+    href="/forgot"
+    className="w-full sm:w-auto text-center text-violet-500 hover:text-violet-600 text-sm transition duration-300 ease-in-out"
+  >
+    ¿Olvidaste tu contraseña?
+  </a>
+</div>
 
         </form>
 
