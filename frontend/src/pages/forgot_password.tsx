@@ -11,7 +11,7 @@ export default function ForgotPassword() {
 
     const checkEmailExists = async (email: string) => {
         try {
-            const response = await fetch('https://back-clima-latest.onrender.com/api/users/checkEmail', {
+            const response = await fetch('https://clima-ad4e.onrender.com/api/users/checkEmail', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -39,7 +39,7 @@ export default function ForgotPassword() {
 
             if (emailExists) {
                 // Si el correo existe, enviar el correo de restablecimiento
-                const response = await fetch('https://back-clima-latest.onrender.com/api/users/reques', {
+                const response = await fetch('https://clima-ad4e.onrender.com/api/users/reques', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

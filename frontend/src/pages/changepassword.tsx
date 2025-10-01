@@ -26,7 +26,7 @@ export default function ChangePassword() {
             const id = urlParams.get('id');
 
             if (token && id) {
-                const response = await fetch(`https://back-clima-latest.onrender.com/api/users/link?token=${token}&id=${id}`);
+                const response = await fetch(`https://clima-ad4e.onrender.com/api/users/link?token=${token}&id=${id}`);
                 if (response.ok) {
                     const result = await response.json();
                     setEmail(result.email);
@@ -80,7 +80,7 @@ export default function ChangePassword() {
         }
 
         try {
-            const response = await fetch('https://back-clima-latest.onrender.com/api/users/resetPassword', {
+            const response = await fetch('https://clima-ad4e.onrender.com/api/users/resetPassword', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

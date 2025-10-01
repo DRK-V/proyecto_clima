@@ -35,7 +35,7 @@ export default function Register() {
         e.preventDefault();
 
         try {
-            const response = await fetch('https://back-clima-latest.onrender.com/api/users/register', {
+            const response = await fetch('https://clima-ad4e.onrender.com/api/users/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

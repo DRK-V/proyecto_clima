@@ -47,7 +47,7 @@ export default function Perfil() {
     e.preventDefault();
 
     try {
-      const response = await fetch('https://back-clima-latest.onrender.com/api/users/update', {
+      const response = await fetch('https://clima-ad4e.onrender.com/api/users/update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

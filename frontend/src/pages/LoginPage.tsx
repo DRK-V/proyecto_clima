@@ -19,7 +19,7 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
 
     if (username && password) {
       try {
-        const response = await fetch('https://back-clima-latest.onrender.com/api/users/login', {
+        const response = await fetch('https://clima-ad4e.onrender.com/api/users/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

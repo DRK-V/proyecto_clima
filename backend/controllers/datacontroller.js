@@ -59,7 +59,7 @@ const loginUser = async (req, res) => {
             .from('usuarios')
             .select('*')
             .eq('email', email)
-            .single();
+             .maybeSingle();
 
         // Manejar errores de Supabase
         if (error) {
@@ -215,28 +215,7 @@ const resetPassword = async (req, res) => {
         res.status(500).json({ message: 'Error al procesar la solicitud.' });
     }
 };
-exports.addProduct = async (req, res) => {
-    const { nombre_producto, descripcion_producto, stock_disponible, tipo, color, precio } = req.body;
 
-    try {
-        // Validar que los campos obligatorios estén presentes
-        if (!nombre_producto || stock_disponible === undefined || !precio) {
-            return res.status(400).json({ error: "Los campos nombre_producto, stock_disponible y precio son obligatorios" });
-        }
-
-        // Insertar el producto en Supabase
-        const { data, error } = await supabase
-            .from("producto")
-            .insert([{ nombre_producto, descripcion_producto, stock_disponible, tipo, color, precio }])
-            .select();
-
-        if (error) throw error;
-
-        res.status(201).json({ message: "Producto agregado exitosamente", product: data[0] });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-};
 module.exports = { 
     registerUser,
     loginUser,
