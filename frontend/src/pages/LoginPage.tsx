@@ -12,6 +12,8 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +31,9 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Error al iniciar sesión');
+          setError(errorData.message || 'Correo o contraseña incorrectos');
+          setSuccess(null);
+          return;
         }
 
         const data = await response.json();
@@ -37,20 +41,45 @@ export default function LoginPage({ setIsAuthenticated, setUser }: LoginPageProp
         Cookies.set('user_data', JSON.stringify(data.user), { expires: 7 });
 
         setIsAuthenticated(true);
-        setUser(data.user); // Actualiza los datos del usuario en el estado
+        setUser(data.user);
 
-        console.log('Datos del usuario:', data.user);
+        setError(null);
+        setSuccess('¡Inicio de sesión exitoso! Redirigiendo...');
+        setTimeout(() => {
+          setSuccess(null);
+          navigate('/dashboard');
+        }, 1500);
 
-        navigate('/dashboard');
       } catch (error) {
-        console.error('Error:', error);
+        setError('Ocurrió un error al iniciar sesión');
+        setSuccess(null);
         // Mostrar un mensaje al usuario o manejar el error según tu diseño
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-400 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-blue-400 via-blue-500 to-blue-700 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Popup de error bonito */}
+      {error && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-red-400 via-pink-400 to-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center space-x-4 border-2 border-white/30 backdrop-blur-md animate-fade-in">
+          <span className="font-medium">{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-4 text-white font-bold hover:text-gray-200 text-xl"
+            aria-label="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {/* Popup de éxito bonito */}
+      {success && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-green-400 via-blue-400 to-green-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center space-x-4 border-2 border-white/30 backdrop-blur-md animate-fade-in">
+          <span className="font-medium">{success}</span>
+        </div>
+      )}
+
       {/* Nubes decorativas interactivas */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(10)].map((_, index) => (
